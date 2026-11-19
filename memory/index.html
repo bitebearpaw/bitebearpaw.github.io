@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>記憶體尋寶</title>
+<style>
+/* Layout: a stepped pyramid of four memory bands (narrow on top, wide at the bottom) beside a request panel; colours match the textbook's figure 1-3-4 */
+:root {
+  --bg: #F3F5F8;
+  --surface: #FFFFFF;
+  --line: #D5DCE6;
+  --fg: #1B2438;
+  --muted: #4E5A6E;
+  --accent: #C4521F;
+  --reg: #B8323F;  --reg-t: #FBE1E4;
+  --cache: #2F7D3E; --cache-t: #DDF0DF;
+  --ram: #9A5A00;  --ram-t: #FBEBCF;
+  --sec: #1F5F9C;  --sec-t: #DCEBF8;
+  --check: #FFF3B0;
+  --font: 'Microsoft JhengHei', 'Noto Sans TC', 'PingFang TC', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121A2C; --surface: #1B2540; --line: #2E3B5C; --fg: #EEF2F8; --muted: #A9B6CC; --accent: #F5A26F;
+    --reg: #FF9AA5; --reg-t: #4A2430;
+    --cache: #8FD69B; --cache-t: #1F3F2A;
+    --ram: #F6C46E; --ram-t: #4A3714;
+    --sec: #8EC3F2; --sec-t: #1C3755;
+    --check: #5A4E12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121A2C; --surface: #1B2540; --line: #2E3B5C; --fg: #EEF2F8; --muted: #A9B6CC; --accent: #F5A26F;
+  --reg: #FF9AA5; --reg-t: #4A2430;
+  --cache: #8FD69B; --cache-t: #1F3F2A;
+  --ram: #F6C46E; --ram-t: #4A3714;
+  --sec: #8EC3F2; --sec-t: #1C3755;
+  --check: #5A4E12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 24px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); font-weight: 900; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 8px 14px; font-weight: 700; }
+button:hover:not(:disabled) { border-color: var(--fg); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.power { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+.stage { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.cpu { align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-weight: 700; }
+.cpu .chip { background: var(--fg); color: var(--bg); padding: 6px 14px; border-radius: 8px; }
+.cpu .held { min-width: 88px; text-align: center; border: 2px dashed var(--line); border-radius: 8px; padding: 4px 10px; color: var(--fg); }
+.band { width: 100%; border-radius: 14px; padding: 12px 14px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; border: 3px solid transparent; transition: border-color .2s, box-shadow .2s; }
+.band[data-l="0"] { width: 46%; background: var(--reg-t); }
+.band[data-l="1"] { width: 62%; background: var(--cache-t); }
+.band[data-l="2"] { width: 80%; background: var(--ram-t); }
+.band[data-l="3"] { width: 100%; background: var(--sec-t); }
+@media (max-width: 900px) { .band[data-l] { width: 100%; } }
+@media (max-width: 560px) { .band { grid-template-columns: 1fr; } }
+.band.checking { border-color: var(--fg); box-shadow: 0 0 0 4px var(--check); }
+.band.miss .verdict::after { content: "沒有"; }
+.band.hit .verdict::after { content: "找到了！"; }
+.meta { display: flex; flex-direction: column; gap: 2px; }
+.meta b { font-size: 18px; }
+.meta small { color: var(--muted); font-size: 13px; }
+.verdict { font-weight: 900; font-size: 14px; min-height: 1.2em; }
+.band[data-l="0"] .meta b, .band[data-l="0"] .verdict { color: var(--reg); }
+.band[data-l="1"] .meta b, .band[data-l="1"] .verdict { color: var(--cache); }
+.band[data-l="2"] .meta b, .band[data-l="2"] .verdict { color: var(--ram); }
+.band[data-l="3"] .meta b, .band[data-l="3"] .verdict { color: var(--sec); }
+.slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.slot { min-width: 72px; padding: 6px 8px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 700; background: var(--surface); border: 1px solid var(--line); transition: transform .25s, opacity .25s, background .25s; }
+.slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-weight: 400; }
+.slot.new { animation: pop .45s ease-out; }
+.slot.found { background: var(--check); }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+.band.wiped .slot:not(.empty) { opacity: 0; transform: scale(.8); }
+
+aside.panel { display: flex; flex-direction: column; gap: 16px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.box h2 { margin: 0 0 10px; font-size: 16px; font-weight: 900; }
+.box h2 span { font-weight: 400; color: var(--muted); font-size: 13px; }
+.req { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 900px) { .req { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .req { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.req button { padding: 8px 4px; font-size: 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.bars { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.bar { display: grid; grid-template-columns: 70px minmax(0, 1fr) 28px; gap: 8px; align-items: center; font-size: 13px; }
+.bar .track { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; }
+.bar .fill { height: 100%; width: 0; transition: width .3s; }
+.bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+.log { font-size: 15px; min-height: 3em; }
+.log .cost { color: var(--accent); font-weight: 900; }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+.speed { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+.speed button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+<style>html,body{margin:0}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a href="../" style="color:var(--muted);text-decoration:none;font-size:14px">← 🐻 熊熊學資訊</a>
+      <h1>記憶體尋寶</h1>
+      <p class="sub">點一筆資料，看 CPU 怎麼由近到遠一層層找，找到後再一層層複製回來。</p>
+    </div>
+    <div class="controls">
+      <div class="speed" role="group" aria-label="播放速度">速度
+        <button id="spd-slow" aria-pressed="true">慢（講解）</button>
+        <button id="spd-fast" aria-pressed="false">快</button>
+      </div>
+      <button id="btn-power" class="power">關機</button>
+      <button id="btn-reset">重新開始</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="記憶體階層">
+      <div class="cpu"><span class="chip">算術與邏輯單元</span>正在使用：<span class="held" id="held">－</span></div>
+      <div id="bands" style="display:contents"></div>
+    </section>
+
+    <aside class="panel">
+      <div class="box">
+        <h2>CPU 要哪一筆資料？ <span>點一下</span></h2>
+        <div class="req" id="req"></div>
+      </div>
+      <div class="box">
+        <h2>這一次</h2>
+        <div class="log" id="log" aria-live="polite">試試看：先點「相片」，再點一次「相片」，比較兩次花的時間。</div>
+      </div>
+      <div class="box">
+        <h2>累計</h2>
+        <div class="stats">
+          <div class="stat"><div class="k">要求次數</div><div class="v" id="s-n">0</div></div>
+          <div class="stat"><div class="k">平均等待（單位）</div><div class="v" id="s-avg">－</div></div>
+        </div>
+        <div class="bars" id="bars"></div>
+      </div>
+      <p class="hint">等待時間是比喻用的數字：每查一層就加上那一層的時間。真實電腦裡，硬碟和快取的差距更大。</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LAYERS = [
+    { name: '暫存器', cap: 2, cost: 1, note: '容量 2 格・查一次 +1' },
+    { name: '快取記憶體', cap: 4, cost: 4, note: '容量 4 格・查一次 +4' },
+    { name: '隨機存取記憶體', cap: 8, cost: 20, note: 'RAM・容量 8 格・查一次 +20' },
+    { name: '輔助記憶體', cap: 16, cost: 300, note: '硬碟・容量 16 格・查一次 +300' }
+  ];
+  const ITEMS = ['作業', '音樂', '簡報', '字典', '相片', '影片', '遊戲', '地圖', '小說', '講義', '單字卡', '行事曆', '計算機', '聊天', '天氣', '食譜'];
+  const START = [['作業'], ['作業', '音樂'], ['作業', '音樂', '簡報', '字典'], ITEMS.slice()];
+
+  let mem, stats, busy = false, slow = true;
+  const $ = (id) => document.getElementById(id);
+  const wait = (ms) => new Promise((r) => setTimeout(r, slow ? ms : ms * 0.3));
+
+  function reset() {
+    mem = START.map((a) => a.slice());
+    stats = { n: 0, time: 0, hits: [0, 0, 0, 0] };
+    $('held').textContent = '－';
+    render();
+    renderStats();
+    $('log').textContent = '試試看：先點「相片」，再點一次「相片」，比較兩次花的時間。';
+  }
+
+  function buildBands() {
+    const host = $('bands');
+    host.innerHTML = '';
+    LAYERS.forEach((L, i) => {
+      const b = document.createElement('div');
+      b.className = 'band';
+      b.dataset.l = i;
+      b.innerHTML = '<div class="meta"><b>' + L.name + '</b><small>' + L.note + '</small><span class="verdict"></span></div><div class="slots"></div>';
+      host.appendChild(b);
+    });
+  }
+
+  function render(newMark) {
+    document.querySelectorAll('.band').forEach((b, i) => {
+      const slots = b.querySelector('.slots');
+      slots.innerHTML = '';
+      for (let k = 0; k < LAYERS[i].cap; k++) {
+        const s = document.createElement('span');
+        const v = mem[i][k];
+        s.className = 'slot' + (v ? '' : ' empty');
+        s.textContent = v || '空';
+        if (v && newMark && newMark.layer === i && newMark.item === v) s.classList.add('new');
+        slots.appendChild(s);
+      }
+    });
+  }
+
+  function renderStats() {
+    $('s-n').textContent = stats.n;
+    $('s-avg').textContent = stats.n ? Math.round(stats.time / stats.n) : '－';
+    const max = Math.max(1, ...stats.hits);
+    $('bars').innerHTML = LAYERS.map((L, i) =>
+      '<div class="bar"><span>' + (i === 2 ? 'RAM' : L.name.replace('記憶體', '')) + '找到</span><span class="track"><span class="fill" style="width:' +
+      (stats.hits[i] / max * 100) + '%;background:var(--' + ['reg', 'cache', 'ram', 'sec'][i] + ')"></span></span><span class="n">' + stats.hits[i] + '</span></div>'
+    ).join('');
+  }
+
+  function setBusy(v) {
+    busy = v;
+    document.querySelectorAll('#req button, #btn-power, #btn-reset').forEach((b) => (b.disabled = v));
+  }
+
+  function clearMarks() {
+    document.querySelectorAll('.band').forEach((b) => b.classList.remove('checking', 'hit', 'miss', 'wiped'));
+  }
+
+  async function request(item) {
+    if (busy) return;
+    setBusy(true);
+    clearMarks();
+    render();
+    const bands = document.querySelectorAll('.band');
+    let time = 0, found = -1;
+    const trail = [];
+    for (let i = 0; i < LAYERS.length; i++) {
+      bands[i].classList.add('checking');
+      time += LAYERS[i].cost;
+      await wait(i === 3 ? 900 : 600);
+      if (mem[i].includes(item)) {
+        found = i;
+        bands[i].classList.add('hit');
+        const idx = mem[i].indexOf(item);
+        bands[i].querySelectorAll('.slot')[idx].classList.add('found');
+        trail.push(LAYERS[i].name + '找到了');
+        break;
+      }
+      bands[i].classList.remove('checking');
+      bands[i].classList.add('miss');
+      trail.push(LAYERS[i].name + '沒有');
+    }
+    await wait(500);
+    // refresh recency in the layer where it was found
+    if (found < 3) { mem[found] = [item, ...mem[found].filter((x) => x !== item)]; }
+    const copied = [], evicted = [];
+    for (let j = found - 1; j >= 0; j--) {
+      mem[j] = [item, ...mem[j].filter((x) => x !== item)];
+      if (mem[j].length > LAYERS[j].cap) evicted.push(LAYERS[j].name + '擠掉「' + mem[j].pop() + '」');
+      copied.push(LAYERS[j].name);
+      clearMarks();
+      bands[j].classList.add('checking');
+      render({ layer: j, item });
+      await wait(450);
+    }
+    clearMarks();
+    render();
+    $('held').textContent = item;
+    stats.n++; stats.time += time; stats.hits[found]++;
+    renderStats();
+    let msg = '要找「' + item + '」：' + trail.join(' → ') + '。等待 <span class="cost">' + time + ' 單位</span>。';
+    if (copied.length) msg += '<br>沿路複製一份到' + copied.reverse().join('、') + '，下次就快了。';
+    if (evicted.length) msg += '<br>空間不夠：' + evicted.join('；') + '（最久沒用的先讓位）。';
+    if (found === 0) msg += '<br>就在 CPU 手邊，最快！';
+    $('log').innerHTML = msg;
+    setBusy(false);
+  }
+
+  async function powerOff() {
+    if (busy) return;
+    setBusy(true);
+    clearMarks();
+    const bands = document.querySelectorAll('.band');
+    [0, 1, 2].forEach((i) => bands[i].classList.add('wiped'));
+    await wait(700);
+    mem[0] = []; mem[1] = []; mem[2] = [];
+    clearMarks();
+    render();
+    $('held').textContent = '－';
+    $('log').innerHTML = '關機了！暫存器、快取、RAM 的資料全部消失，只有<b>輔助記憶體</b>還保存著。<br>重新開機後，第一次找任何資料都得回到輔助記憶體。';
+    setBusy(false);
+  }
+
+  const req = $('req');
+  ITEMS.forEach((it) => {
+    const b = document.createElement('button');
+    b.textContent = it;
+    b.addEventListener('click', () => request(it));
+    req.appendChild(b);
+  });
+  $('btn-power').addEventListener('click', powerOff);
+  $('btn-reset').addEventListener('click', () => { if (!busy) reset(); });
+  function setSpeed(s) {
+    slow = s;
+    $('spd-slow').setAttribute('aria-pressed', String(s));
+    $('spd-fast').setAttribute('aria-pressed', String(!s));
+  }
+  $('spd-slow').addEventListener('click', () => setSpeed(true));
+  $('spd-fast').addEventListener('click', () => setSpeed(false));
+
+  buildBands();
+  reset();
+})();
+</script>
+
+</body>
+</html>
