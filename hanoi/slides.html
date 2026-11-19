@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>河內塔教學投影片</title>
+<style>
+:root{--bg:#fbfaf7;--ink:#1f2328;--ink2:#5b6370;--line:#e2ddd3;--accent:#2563eb;--soft:#e8effd;--hot:#ea580c;--hotsoft:#fdeee4;--good:#15803d;--wood:#8b6a4a;--rod:#a9927a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#2b2d31;overflow:hidden}
+body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;color:var(--ink)}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center}
+.slide{position:absolute;inset:0;background:var(--bg);padding:56px 80px 60px;display:none;flex-direction:column;overflow:hidden}
+.slide.on{display:flex}
+.slide h2{font-size:46px;margin:0 0 26px;line-height:1.2}
+.slide h2 .tag{display:inline-block;font-size:20px;vertical-align:middle;background:var(--soft);color:var(--accent);padding:4px 14px;border-radius:999px;margin-right:14px;font-weight:700}
+.slide p,.slide li{font-size:29px;line-height:1.6}
+.slide ul,.slide ol{margin:0;padding-left:1.3em}
+.slide li{margin:6px 0}
+.muted{color:var(--ink2)}
+.hot{color:var(--hot);font-weight:700}
+.acc{color:var(--accent);font-weight:700}
+.row{display:flex;gap:40px;align-items:center;flex:1}
+.col{flex:1;min-width:0}
+.box{background:#fff;border:2px solid var(--line);border-radius:18px;padding:22px 28px}
+.box.hl{border-color:var(--accent);background:var(--soft)}
+.box.warm{border-color:var(--hot);background:var(--hotsoft)}
+pre{margin:0;background:#1f2430;color:#e6e6e6;border-radius:16px;padding:22px 28px;font-family:Consolas,"Cascadia Mono",monospace;font-size:25px;line-height:1.6;white-space:pre}
+pre .c{color:#8fb3a0} pre .k{color:#ff9e64} pre .f{color:#7aa2ff} pre .n{color:#f2c46d}
+pre .mark{background:rgba(250,204,21,.22);border-radius:6px;display:inline-block;width:100%}
+table{border-collapse:collapse;font-size:28px;background:#fff}
+th,td{border:2px solid var(--line);padding:10px 22px;text-align:center;font-variant-numeric:tabular-nums}
+th{background:var(--soft)}
+.footer{position:absolute;left:80px;right:80px;bottom:22px;display:flex;justify-content:space-between;font-size:16px;color:var(--ink2)}
+.cover{justify-content:center;background:linear-gradient(135deg,#fbfaf7 55%,#e8effd)}
+.cover h1{font-size:84px;margin:0}
+.cover .sub{font-size:34px;color:var(--ink2);margin-top:10px}
+.cover .meta{font-size:24px;color:var(--ink2);margin-top:50px}
+.slide .big{margin:0;font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;flex:1}
+.steps .box{display:flex;flex-direction:column;align-items:center;text-align:center;padding:18px}
+.steps .box p{font-size:24px;margin:8px 0 0;line-height:1.45}
+.num{display:inline-flex;width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;font-size:26px;align-items:center;justify-content:center;margin-right:10px;flex:none}
+.tree{background:#fff;border:2px solid var(--line);border-radius:16px;padding:18px 28px;font-family:Consolas,"Microsoft JhengHei",monospace;font-size:23px;line-height:1.55;white-space:pre}
+.tree .mv{color:var(--hot);font-weight:700}
+.tree .call{color:var(--accent)}
+.q{display:flex;gap:16px;align-items:flex-start;margin:10px 0}
+.q p{margin:0}
+svg.tw{width:100%;height:auto;display:block}
+#nav{position:fixed;bottom:10px;right:16px;color:#bbb;font-size:13px;font-family:system-ui;z-index:9}
+#bar{position:fixed;left:0;top:0;height:4px;background:var(--accent);z-index:9;transition:width .2s}
+a{color:var(--accent)}
+@media print{
+  @page{size:1280px 720px;margin:0}
+  html,body{overflow:visible;height:auto;background:#fff}
+  #stage{position:static;transform:none!important;width:auto;height:auto}
+  .slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;break-after:page}
+  #nav,#bar{display:none}
+}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="nav">← → 換頁　F 全螢幕　Ctrl+P 可存成 PDF</div>
+<div id="stage">
+
+<!-- 1 封面 -->
+<section class="slide cover">
+  <h1>河內塔 Tower of Hanoi</h1>
+  <div class="sub">用遞迴，把大問題變成小問題</div>
+  <div style="width:520px;margin-top:40px"><svg class="tw" data-t="7654321||" viewBox="0 0 360 170"></svg></div>
+  <div class="meta">國九　資訊科技｜遞迴單元</div>
+</section>
+
+<!-- 2 回顧 -->
+<section class="slide">
+  <h2><span class="tag">回顧</span>上次學過的遞迴：費氏數列</h2>
+  <div class="row">
+    <div class="col">
+<pre style="font-size:23px"><span class="k">int</span> <span class="f">fib</span>(<span class="k">int</span> n) {
+    <span class="k">if</span> (n &lt;= <span class="n">2</span>)        <span class="c">// 終止條件</span>
+        <span class="k">return</span> <span class="n">1</span>;
+    <span class="k">return</span> <span class="f">fib</span>(n-<span class="n">1</span>) + <span class="f">fib</span>(n-<span class="n">2</span>);
+}</pre>
+      <p class="muted" style="font-size:24px;margin-top:16px">1, 1, 2, 3, 5, 8, 13, 21, …</p>
+    </div>
+    <div class="col">
+      <div class="box hl">
+        <p style="margin:0 0 8px"><b>遞迴的兩個要素</b></p>
+        <ol>
+          <li><b>終止條件</b>：小到可以直接回答</li>
+          <li><b>縮小問題</b>：呼叫自己，但問題變小</li>
+        </ol>
+      </div>
+      <p style="margin-top:22px">今天要看一個<span class="hot">「不用遞迴，很難想」</span>的問題。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 傳說 -->
+<section class="slide">
+  <h2><span class="tag">故事</span>一個古老的傳說</h2>
+  <div class="row">
+    <div class="col">
+      <p>神廟裡有 <b>3 根鑽石柱</b>，其中一根套著 <span class="hot">64 片金盤</span>，由大到小疊起來。</p>
+      <p>僧侶依照規則，日夜不停地把金盤搬到另一根柱子上。</p>
+      <p>傳說：<b>搬完的那一刻，世界就會毀滅。</b></p>
+      <p class="muted" style="font-size:22px">※ 謎題由法國數學家 Édouard Lucas 於 1883 年發明，傳說也是他編的。</p>
+    </div>
+    <div class="col">
+      <div class="box warm" style="text-align:center">
+        <p style="margin:0;font-size:34px"><b>我們要擔心嗎？</b></p>
+        <p style="margin:10px 0 0">世界末日會很快到來嗎？</p>
+        <p class="muted" style="margin:6px 0 0;font-size:24px">先猜猜看，下課前揭曉答案</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 規則 -->
+<section class="slide">
+  <h2><span class="tag">規則</span>遊戲規則</h2>
+  <div class="row">
+    <div class="col">
+      <ol>
+        <li>一次只能搬 <b>一片</b></li>
+        <li>只能拿 <b>最上面</b> 的那片</li>
+        <li><span class="hot">大盤子不能壓在小盤子上</span></li>
+      </ol>
+      <div class="box hl" style="margin-top:28px"><p style="margin:0"><b>目標：</b>把全部盤子從 <b>A</b> 搬到 <b>C</b>，<br>而且步數 <b>越少越好</b>。</p></div>
+    </div>
+    <div class="col">
+      <svg class="tw" data-t="321||" data-labels="1" viewBox="0 0 360 190"></svg>
+      <p class="muted" style="text-align:center;font-size:22px">A 起點　　B 輔助　　C 目標</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 動手玩 -->
+<section class="slide">
+  <h2><span class="tag">活動 1</span>動手玩：最少要幾步？</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <p>打開 <a href="index.html" target="_blank"><b>河內塔互動網頁</b></a> 的「挑戰模式」。</p>
+      <ol>
+        <li>從 <b>1 片</b> 開始，一片一片往上加</li>
+        <li>每一關都盡量用 <b>最少步數</b> 完成</li>
+        <li>把結果填進右邊的表格</li>
+      </ol>
+      <p class="muted" style="font-size:24px">卡住時可以按「💡 提示」</p>
+    </div>
+    <div class="col">
+      <table style="width:100%">
+        <tr><th>盤數 n</th><th>最少步數</th></tr>
+        <tr><td>1</td><td></td></tr><tr><td>2</td><td></td></tr><tr><td>3</td><td></td></tr>
+        <tr><td>4</td><td></td></tr><tr><td>5</td><td></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 6 規律 -->
+<section class="slide">
+  <h2><span class="tag">觀察</span>你發現規律了嗎？</h2>
+  <table style="margin-bottom:28px">
+    <tr><th>盤數 n</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+    <tr><th>最少步數</th><td>1</td><td>3</td><td>7</td><td>15</td><td>31</td><td class="hot">?</td></tr>
+  </table>
+  <p>3 = 1 × 2 + 1　　7 = 3 × 2 + 1　　15 = 7 × 2 + 1 …</p>
+  <div class="box warm" style="margin-top:14px">
+    <p style="margin:0">每多一片，步數就變成 <b>「前一個 × 2 + 1」</b>。</p>
+    <p style="margin:6px 0 0"><b>為什麼？</b> 我們來想一想搬盤子的過程。</p>
+  </div>
+</section>
+
+<!-- 7 關鍵 -->
+<section class="slide">
+  <h2><span class="tag">關鍵</span>先只想「最大的那一片」</h2>
+  <div class="row">
+    <div class="col">
+      <p>最大的盤子要搬到 C，搬的那一刻：</p>
+      <ul>
+        <li>它必須在 A 的 <b>最上面</b></li>
+        <li>C 必須是 <b>空的</b></li>
+      </ul>
+      <p style="margin-top:20px">那其他 <span class="hot">n − 1 片</span> 在哪裡？</p>
+      <p class="acc" style="font-size:34px">→ 一定全部疊在 B！</p>
+    </div>
+    <div class="col">
+      <svg class="tw" data-t="N|X|" data-arrow="0-2" viewBox="0 0 360 170"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- 8 三步驟 -->
+<section class="slide">
+  <h2><span class="tag">拆解</span>搬 n 片 = 三個步驟</h2>
+  <div class="steps">
+    <div class="box">
+      <div style="display:flex;align-items:center"><span class="num">1</span><b style="font-size:26px">n−1 片：A → B</b></div>
+      <svg class="tw" data-t="NX||" data-arrow="0-1" viewBox="0 0 360 170"></svg>
+      <p>借用 C 當輔助</p>
+    </div>
+    <div class="box">
+      <div style="display:flex;align-items:center"><span class="num">2</span><b style="font-size:26px">最大那片：A → C</b></div>
+      <svg class="tw" data-t="N|X|" data-arrow="0-2" viewBox="0 0 360 170"></svg>
+      <p>只要 <b>1 步</b></p>
+    </div>
+    <div class="box">
+      <div style="display:flex;align-items:center"><span class="num">3</span><b style="font-size:26px">n−1 片：B → C</b></div>
+      <svg class="tw" data-t="|X|N" data-arrow="1-2" viewBox="0 0 360 170"></svg>
+      <p>借用 A 當輔助</p>
+    </div>
+  </div>
+  <div class="box hl" style="margin-top:20px;padding:14px 26px">
+    <p style="margin:0">步驟 ① 和 ③ 是什麼？ → <b>就是「少一片」的河內塔！</b>　這就是 <span class="hot">遞迴</span>。</p>
+  </div>
+</section>
+
+<!-- 9 兩要素對照 -->
+<section class="slide">
+  <h2><span class="tag">對照</span>河內塔也有遞迴的兩要素</h2>
+  <table style="width:100%">
+    <tr><th style="width:22%"></th><th>費氏數列 fib(n)</th><th>河內塔 hanoi(n)</th></tr>
+    <tr><th>終止條件</th><td>n ≤ 2 時，回傳 1</td><td>n = 1 時，<b>直接搬過去</b></td></tr>
+    <tr><th>縮小問題</th><td>fib(n−1) + fib(n−2)</td><td>hanoi(n−1) → 搬最大 → hanoi(n−1)</td></tr>
+    <tr><th>呼叫自己幾次</th><td>2 次</td><td>2 次</td></tr>
+  </table>
+  <div class="box warm" style="margin-top:30px">
+    <p style="margin:0"><b>遞迴的思考方式：</b>不用想清楚每一步，<br>只要 <span class="hot">相信</span>「n−1 片的問題會被解決」，再處理好最大的那片。</p>
+  </div>
+</section>
+
+<!-- 10 程式碼 -->
+<section class="slide">
+  <h2><span class="tag">程式</span>寫成 C++</h2>
+  <div class="row" style="align-items:flex-start">
+    <div style="flex:1.7">
+<pre style="font-size:20px;padding:16px 24px;line-height:1.5"><span class="k">#include</span> <span class="n">&lt;iostream&gt;</span>
+<span class="k">using namespace</span> std;
+
+<span class="k">void</span> <span class="f">hanoi</span>(<span class="k">int</span> n, <span class="k">char</span> src, <span class="k">char</span> dst, <span class="k">char</span> tmp) {
+    <span class="k">if</span> (n == <span class="n">1</span>) {                       <span class="c">// 終止條件</span>
+        cout &lt;&lt; <span class="n">1</span> &lt;&lt; <span class="n">": "</span> &lt;&lt; src &lt;&lt; <span class="n">" -&gt; "</span> &lt;&lt; dst &lt;&lt; endl;
+        <span class="k">return</span>;
+    }
+    <span class="f">hanoi</span>(n-<span class="n">1</span>, src, tmp, dst);                    <span class="c">// ①</span>
+    cout &lt;&lt; n &lt;&lt; <span class="n">": "</span> &lt;&lt; src &lt;&lt; <span class="n">" -&gt; "</span> &lt;&lt; dst &lt;&lt; endl; <span class="c">// ②</span>
+    <span class="f">hanoi</span>(n-<span class="n">1</span>, tmp, dst, src);                    <span class="c">// ③</span>
+}
+
+<span class="k">int</span> <span class="f">main</span>() {
+    <span class="f">hanoi</span>(<span class="n">3</span>, <span class="n">'A'</span>, <span class="n">'C'</span>, <span class="n">'B'</span>);
+}</pre>
+    </div>
+    <div class="col">
+      <div class="box">
+        <p style="margin:0;font-size:25px"><b>src</b>：起點柱<br><b>dst</b>：目標柱<br><b>tmp</b>：輔助柱</p>
+      </div>
+      <p style="font-size:25px;margin-top:20px">注意 ① 和 ③ 裡，<br><span class="hot">三根柱子的角色互換了</span>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 追蹤 -->
+<section class="slide">
+  <h2><span class="tag">追蹤</span>hanoi(3, A, C, B) 是怎麼執行的？</h2>
+  <div class="row" style="align-items:flex-start;gap:30px">
+<div class="tree" style="flex:1.6"><span class="call">hanoi(3, A, C, B)</span>
+├─ <span class="call">hanoi(2, A, B, C)</span>          ①
+│   ├─ <span class="call">hanoi(1, A, C, B)</span> → <span class="mv">❶ 1號 A→C</span>
+│   ├─ <span class="mv">❷ 2號 A→B</span>
+│   └─ <span class="call">hanoi(1, C, B, A)</span> → <span class="mv">❸ 1號 C→B</span>
+├─ <span class="mv">❹ 3號 A→C</span>                  ②
+└─ <span class="call">hanoi(2, B, C, A)</span>          ③
+    ├─ <span class="call">hanoi(1, B, A, C)</span> → <span class="mv">❺ 1號 B→A</span>
+    ├─ <span class="mv">❻ 2號 B→C</span>
+    └─ <span class="call">hanoi(1, A, C, B)</span> → <span class="mv">❼ 1號 A→C</span></div>
+    <div class="col">
+      <p style="font-size:26px">共 <b class="hot">7 步</b>，正好是最少步數！</p>
+      <div class="box hl"><p style="margin:0;font-size:24px">打開互動網頁的<br><b>「🔁 遞迴動畫」</b>，<br>一步一步看<b>呼叫堆疊</b>怎麼變化。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 公式 -->
+<section class="slide">
+  <h2><span class="tag">推導</span>為什麼是「× 2 + 1」？</h2>
+  <div class="row">
+    <div class="col">
+      <p>設 T(n) = 搬 n 片的最少步數</p>
+      <div class="box" style="margin:10px 0 20px">
+        <p style="margin:0;font-size:32px">T(n) = <span class="acc">T(n−1)</span> + <span class="hot">1</span> + <span class="acc">T(n−1)</span></p>
+        <p style="margin:4px 0 0;font-size:22px" class="muted">　　　　 &nbsp;①　　　　②　　③</p>
+        <p style="margin:10px 0 0;font-size:32px">　　 = 2 × T(n−1) + 1</p>
+      </div>
+      <p>又因為 T(1) = 1，所以：</p>
+      <p class="big" style="color:var(--hot)">T(n) = 2<sup>n</sup> − 1</p>
+    </div>
+    <div class="col">
+      <table style="width:100%">
+        <tr><th>n</th><th>2<sup>n</sup></th><th>2<sup>n</sup> − 1</th></tr>
+        <tr><td>1</td><td>2</td><td>1</td></tr><tr><td>2</td><td>4</td><td>3</td></tr>
+        <tr><td>3</td><td>8</td><td>7</td></tr><tr><td>4</td><td>16</td><td>15</td></tr>
+        <tr><td>10</td><td>1024</td><td>1023</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 13 揭曉 -->
+<section class="slide">
+  <h2><span class="tag">揭曉</span>回到傳說：64 片要多久？</h2>
+  <p style="margin:0">2<sup>64</sup> − 1 =</p>
+  <p class="big">18,446,744,073,709,551,615 步</p>
+  <p class="muted" style="font-size:26px;margin:0">（約 1844 京）</p>
+  <div class="row" style="flex:0;margin-top:14px">
+    <div class="box warm col"><p style="margin:0">每秒搬 1 片，不休息、不出錯：</p><p class="big" style="margin:4px 0 0;font-size:54px">約 5846 億年</p></div>
+    <div class="box col"><p style="margin:0">宇宙目前的年齡約 <b>138 億年</b></p><p style="margin:4px 0 0">→ 大約是宇宙年齡的 <span class="hot">42 倍</span>！</p></div>
+  </div>
+  <p style="margin-top:18px">結論：<b>不用擔心世界末日</b>。這就是 <span class="acc">指數成長</span> 的威力。</p>
+</section>
+
+<!-- 14 練習 -->
+<section class="slide">
+  <h2><span class="tag">練習</span>想一想</h2>
+  <div class="q"><span class="num">1</span><p>寫出 <code>hanoi(2, 'A', 'C', 'B')</code> 的所有步驟。</p></div>
+  <div class="q"><span class="num">2</span><p>搬 <b>4 片</b> 時，第一步要把 1 號盤搬到 B 還是 C？搬 5 片呢？</p></div>
+  <div class="q"><span class="num">3</span><p>搬 5 片的過程中，<b>5 號盤</b>（最大）被搬了幾次？<b>1 號盤</b>（最小）呢？</p></div>
+  <div class="q"><span class="num">4</span><p><b>挑戰：</b>修改程式，加一個計數器，印出總共搬了幾步，驗證 2<sup>n</sup> − 1。</p></div>
+  <p class="muted" style="font-size:22px;margin-top:auto">提示：第 2、3 題可以用互動網頁實際觀察！</p>
+</section>
+
+<!-- 15 總結 -->
+<section class="slide">
+  <h2><span class="tag">總結</span>今天學到什麼？</h2>
+  <ul>
+    <li>河內塔：<b>把 n 片的問題，拆成兩個 n−1 片的問題 + 1 步</b></li>
+    <li>遞迴兩要素：<span class="acc">終止條件</span>（n = 1 直接搬）＋ <span class="acc">縮小問題</span>（呼叫 hanoi(n−1)）</li>
+    <li>每一層呼叫，<b>柱子的角色會互換</b>（起點、目標、輔助）</li>
+    <li>最少步數 <span class="hot">2<sup>n</sup> − 1</span>：每多一片，工作量約變 2 倍</li>
+    <li>指數成長非常驚人：64 片要 5846 億年</li>
+  </ul>
+  <div class="box hl" style="margin-top:auto"><p style="margin:0">遞迴的精神：<b>相信小問題會被解決，專心處理眼前這一步。</b></p></div>
+</section>
+
+<!-- 16 答案 -->
+<section class="slide">
+  <h2><span class="tag">解答</span>練習參考答案</h2>
+  <div class="q"><span class="num">1</span><p>1號 A→B，2號 A→C，1號 B→C（共 3 步）</p></div>
+  <div class="q"><span class="num">2</span><p>4 片（偶數）：先搬到 <b>B</b>；5 片（奇數）：先搬到 <b>C</b></p></div>
+  <div class="q"><span class="num">3</span><p>5 號盤只搬 <b>1 次</b>；1 號盤搬 <b>16 次</b>（第 k 號盤搬 2<sup>n−k</sup> 次）</p></div>
+  <div class="q" style="align-items:flex-start"><span class="num">4</span>
+<pre style="font-size:19px;padding:12px 22px;flex:1;line-height:1.5"><span class="k">long long</span> cnt = <span class="n">0</span>;   <span class="c">// 全域計數器（不要取名 count，會和 std::count 衝突）</span>
+<span class="k">void</span> <span class="f">hanoi</span>(<span class="k">int</span> n, <span class="k">char</span> src, <span class="k">char</span> dst, <span class="k">char</span> tmp) {
+    <span class="k">if</span> (n == <span class="n">1</span>) { cnt++; <span class="k">return</span>; }
+    <span class="f">hanoi</span>(n-<span class="n">1</span>, src, tmp, dst);
+    cnt++;
+    <span class="f">hanoi</span>(n-<span class="n">1</span>, tmp, dst, src);
+}
+<span class="k">int</span> <span class="f">main</span>() { <span class="f">hanoi</span>(<span class="n">10</span>, <span class="n">'A'</span>, <span class="n">'C'</span>, <span class="n">'B'</span>); cout &lt;&lt; cnt; }   <span class="c">// 印出 1023</span></pre></div>
+</section>
+
+</div>
+
+<script>
+"use strict";
+const COLORS = ['#f87171','#fb923c','#facc15','#4ade80','#2dd4bf','#60a5fa','#a78bfa','#f472b6'];
+// data-t：三根柱子用 | 分隔，由下往上；數字=盤子大小，N=最大盤，X=「n−1 片」整疊
+document.querySelectorAll('svg.tw').forEach((svg, si) => {
+  const [, , VW, VH] = svg.getAttribute('viewBox').split(' ').map(Number);
+  const pegs = svg.dataset.t.split('|');
+  const max = Math.max(1, ...pegs.join('').replace(/[NX]/g, '').split('').map(Number));
+  const col = VW / 3, baseY = VH - (svg.dataset.labels ? 42 : 22), dh = 15;
+  let s = `<rect x="6" y="${baseY}" width="${VW - 12}" height="9" rx="4.5" fill="#8b6a4a"/>`;
+  for (let p = 0; p < 3; p++) s += `<rect x="${col * (p + .5) - 3.5}" y="${baseY - 108}" width="7" height="108" rx="3" fill="#a9927a"/>`;
+  pegs.forEach((stack, p) => {
+    let y = baseY;
+    for (const tk of stack) {
+      const cx = col * (p + .5);
+      if (tk === 'X') {
+        const w = col * .78, h = dh * 3.2; y -= h;
+        s += `<rect x="${cx - w / 2}" y="${y}" width="${w}" height="${h}" rx="8" fill="#93c5fd" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/>`
+          + `<text x="${cx}" y="${y + h / 2 + 6}" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">n−1 片</text>`;
+      } else {
+        const big = tk === 'N', d = big ? max + 1 : +tk;
+        const w = big ? col * .94 : col * (.28 + .62 * (d - 1) / Math.max(1, max - 1)), h = big ? dh * 1.3 : dh;
+        y -= h;
+        s += `<rect x="${cx - w / 2}" y="${y}" width="${w}" height="${h}" rx="5" fill="${big ? '#ea580c' : COLORS[(d - 1) % 8]}" stroke="#fbfaf7" stroke-width="1.5"/>`;
+        s += `<text x="${cx}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="${big ? 14 : 12}" font-weight="700" fill="${big ? '#fff' : '#1b1b1b'}">${big ? 'n' : d}</text>`;
+      }
+    }
+  });
+  if (svg.dataset.labels) ['A', 'B', 'C'].forEach((l, p) => s += `<text x="${col * (p + .5)}" y="${baseY + 30}" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2328">${l}</text>`);
+  if (svg.dataset.arrow) {
+    const [a, b] = svg.dataset.arrow.split('-').map(Number);
+    const x1 = col * (a + .5), x2 = col * (b + .5), top = baseY - 130;
+    s = `<defs><marker id="ah${si}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker></defs>` + s
+      + `<path d="M${x1},${top + 18} Q${(x1 + x2) / 2},${top - 22} ${x2},${top + 18}" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#ah${si})"/>`;
+  }
+  svg.innerHTML = s;
+});
+
+const slides = [...document.querySelectorAll('.slide')];
+slides.forEach((sl, i) => {
+  if (i === 0) return;
+  const f = document.createElement('div'); f.className = 'footer';
+  f.innerHTML = `<span>河內塔｜遞迴</span><span>${i + 1} / ${slides.length}</span>`; sl.append(f);
+});
+let cur = Math.min(slides.length - 1, Math.max(0, (parseInt(location.hash.slice(1)) || 1) - 1));
+function show(i) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, k) => s.classList.toggle('on', k === cur));
+  document.getElementById('bar').style.width = ((cur + 1) / slides.length * 100) + '%';
+  history.replaceState(null, '', '#' + (cur + 1));
+}
+function fit() {
+  const k = Math.min(innerWidth / 1280, innerHeight / 720);
+  document.getElementById('stage').style.transform = `translate(-50%,-50%) scale(${k})`;
+}
+addEventListener('resize', fit);
+addEventListener('keydown', e => {
+  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(cur + 1); }
+  else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(cur - 1); }
+  else if (e.key === 'Home') show(0);
+  else if (e.key === 'End') show(slides.length - 1);
+  else if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+});
+addEventListener('click', e => { if (e.target.closest('a')) return; show(cur + (e.clientX > innerWidth / 3 ? 1 : -1)); });
+fit(); show(cur);
+</script>
+</body>
+</html>
