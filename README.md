@@ -8,6 +8,8 @@
 
 ```
 index.html          首頁（工具清單）
+fib/
+  index.html        費式數列：函數呼叫與記憶體（遞迴動畫）
 hanoi/
   index.html        河內塔互動網頁
   slides.html       河內塔教學投影片

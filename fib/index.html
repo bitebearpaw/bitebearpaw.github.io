@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>費式數列：函數呼叫時，記憶體裡發生了什麼？</title>
+<style>
+:root{
+  --bg:#f6f3ec; --card:#fffdf8; --ink:#2b2a33; --muted:#6f6b7a; --line:#e3ddd0;
+  --accent:#e8743b; --good:#2f9e6e; --warn:#d64545; --blue:#3a6fd8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;line-height:1.5}
+header{padding:22px 28px 6px;max-width:1400px;margin:0 auto}
+h1{margin:0;font-size:clamp(22px,3vw,32px);font-weight:900;letter-spacing:.5px}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0;font-size:15px}
+.analogy{max-width:1400px;margin:12px auto 0;padding:0 28px}
+.analogy div{background:#fff4e6;border:2px dashed #f0b27a;border-radius:14px;padding:12px 16px;font-size:15px}
+.analogy b{color:#b35416}
+main{max-width:1400px;margin:0 auto;padding:16px 28px 28px;display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr) minmax(340px,1.3fr);gap:16px}
+@media (max-width:1050px){main{grid-template-columns:1fr 1fr}.tree-panel{grid-column:1/-1}}
+@media (max-width:700px){main{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 2px 0 rgba(0,0,0,.03);display:flex;flex-direction:column;min-height:0}
+.panel h2{margin:0 0 10px;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel h2 .tag{font-size:11px;font-weight:500;background:#efeae0;color:var(--muted);padding:2px 8px;border-radius:99px}
+
+/* code */
+pre.code{margin:0;font-family:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;font-size:14.5px;background:#23222b;color:#e9e6f2;border-radius:12px;padding:10px 0;overflow:auto}
+.ln{display:flex;align-items:center;padding:1px 12px 1px 0;border-left:4px solid transparent;transition:background .25s}
+.ln .no{width:34px;text-align:right;color:#6c6880;margin-right:14px;flex:none;user-select:none}
+.ln.cur{background:rgba(232,116,59,.28);border-left-color:var(--accent)}
+.ln.cur .no{color:#ffb98f}
+.ln .pin{margin-left:auto;font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:11px;color:#23222b;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;max-width:45%}
+.kw{color:#ff9ac1}.ty{color:#7fd3ff}.fn{color:#ffd86b}.nu{color:#b8f18b}.cm{color:#8a86a0}
+.output{margin-top:12px;background:#111;color:#9ef0a5;font-family:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;border-radius:10px;padding:8px 12px;font-size:14px;min-height:38px}
+.output small{color:#777;font-family:"Noto Sans TC"}
+.legend{margin-top:12px;font-size:13px;color:var(--muted)}
+.legend p{margin:4px 0}
+
+/* stack */
+.stack-wrap{flex:1;display:flex;flex-direction:column;min-height:420px}
+.stack-label{font-size:12px;color:var(--muted);text-align:center}
+.stack{flex:1;max-height:500px;display:flex;flex-direction:column-reverse;gap:6px;padding:8px;border:3px solid #cfc7b6;border-top:none;border-radius:0 0 14px 14px;background:repeating-linear-gradient(0deg,#faf7f0 0 18px,#f5f1e7 18px 19px);overflow:auto}
+.frame{border-radius:12px;padding:8px 10px;border:2px solid rgba(0,0,0,.12);position:relative;transition:transform .3s, box-shadow .3s, opacity .3s}
+.frame.enter{animation:drop .45s cubic-bezier(.2,1.4,.4,1)}
+.frame.leave{animation:fly .45s ease-in forwards}
+@keyframes drop{from{transform:translateY(-60px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fly{to{transform:translate(40px,-50px) rotate(6deg);opacity:0}}
+.frame.top{box-shadow:0 0 0 3px var(--accent),0 6px 14px rgba(232,116,59,.25)}
+.frame.paused{opacity:.82}
+.frame .ttl{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}
+.frame .st{margin-left:auto;font-size:11px;font-weight:500;background:rgba(255,255,255,.7);padding:1px 8px;border-radius:99px}
+.vars{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.var{background:rgba(255,255,255,.85);border-radius:8px;padding:2px 8px;font-family:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;font-size:13px;border:1px solid rgba(0,0,0,.08)}
+.var.q{color:#a39fae}
+.var.flash{animation:flash .8s}
+@keyframes flash{0%{background:#ffe066;transform:scale(1.15)}100%{background:rgba(255,255,255,.85)}}
+.ret{position:absolute;right:-8px;top:-12px;background:var(--good);color:#fff;font-weight:700;font-size:13px;padding:2px 10px;border-radius:99px;box-shadow:0 2px 6px rgba(0,0,0,.2);animation:pop .4s}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.meters{display:flex;gap:10px;margin-top:10px}
+.meter{flex:1;background:#f3efe6;border-radius:10px;padding:6px 10px;text-align:center}
+.meter b{display:block;font-size:22px;font-weight:900}
+.meter span{font-size:12px;color:var(--muted)}
+
+/* tree */
+.tree-box{flex:1;min-height:340px;max-height:560px;display:flex;align-items:center;justify-content:center;overflow:auto}
+.tree-box.wide{justify-content:flex-start;align-items:flex-start}
+svg#tree{width:100%;height:100%;max-height:520px}
+.edge{stroke:#d8d1c2;stroke-width:2;transition:stroke .3s,opacity .3s}
+.edge.hidden{opacity:0}
+.edge.on{stroke:var(--accent);stroke-width:3}
+.node{transition:opacity .3s}
+.node.hidden{opacity:.13}
+.node rect{stroke-width:2.5;transition:fill .3s,stroke .3s}
+.node text{font-family:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;font-size:13px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.node .val{font-weight:700;font-size:13px}
+.tree-note{font-size:13px;color:var(--muted);margin-top:6px}
+.tree-note .dup{display:inline-block;width:12px;height:12px;border:2px dashed var(--warn);border-radius:3px;vertical-align:-1px}
+
+/* narration + controls */
+.bar{grid-column:1/-1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+.narr{font-size:18px;min-height:56px;display:flex;align-items:center;gap:12px}
+.narr .stepno{flex:none;background:var(--ink);color:#fff;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700}
+.narr .txt b{color:var(--accent)}
+.narr .txt .warn{color:var(--warn);font-weight:700}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font-family:inherit;font-size:15px;border:none;border-radius:10px;padding:8px 14px;background:#ece6d9;color:var(--ink);cursor:pointer;font-weight:500}
+button:hover{background:#e2dac9}
+button.primary{background:var(--accent);color:#fff;min-width:96px}
+button.primary:hover{background:#d4642d}
+.controls label{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px}
+#inN{width:64px;font-family:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;font-size:16px;padding:6px 8px;border-radius:8px;border:2px solid var(--line);background:#fff;text-align:center}
+#inN:focus{outline:none;border-color:var(--accent)}
+.nmsg{font-size:13px;color:var(--warn);flex-basis:100%}
+.nmsg:empty{display:none}
+select{font-family:inherit;font-size:15px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#fff}
+input[type=range]{accent-color:var(--accent)}
+.progress{flex:1;min-width:140px;height:8px;background:#ece6d9;border-radius:99px;overflow:hidden;cursor:pointer}
+.progress div{height:100%;background:var(--accent);width:0;transition:width .2s}
+.keys{font-size:12px;color:var(--muted)}
+.takeaways{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.tk{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:14px}
+.tk h3{margin:0 0 4px;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <a href="../" style="color:var(--muted);text-decoration:none;font-size:14px">← 🐻 熊熊學資訊</a>
+  <h1>費式數列 <span>fib(n)</span>：函數呼叫時，記憶體裡發生了什麼？</h1>
+  <p class="sub">0, 1, 1, 2, 3, 5, 8, 13 …　每一項 = 前兩項相加。按「播放」或「下一步」，看電腦怎麼一步步算出來。</p>
+</header>
+<div class="analogy"><div>
+  📦 <b>比喻：</b>每呼叫一次函數，電腦就在記憶體的「堆疊（Stack）」上<b>疊一個新盒子</b>，盒子裡放這次呼叫自己的變數（n、a、b）。
+  只有<b>最上面的盒子</b>在工作，下面的盒子都在「暫停等答案」。做完了，盒子就被<b>拿走</b>，答案交給下面那個盒子。
+</div></div>
+
+<main>
+  <section class="panel">
+    <h2>① 程式碼 <span class="tag">橘色 = 正在執行的那一行</span></h2>
+    <pre class="code" id="code"></pre>
+    <div class="output" id="output"><small>螢幕輸出會出現在這裡</small></div>
+    <div class="legend">
+      <p>🏷️ 程式碼右邊的「⏸ fib(4)」小標籤：表示那個盒子正停在這一行，等別人把答案傳回來。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>② 記憶體：呼叫堆疊 <span class="tag">Call Stack</span></h2>
+    <div class="stack-wrap">
+      <div class="stack-label">⬆ 新的盒子疊在上面</div>
+      <div class="stack" id="stack"></div>
+      <div class="stack-label">⬇ 最底下是 main</div>
+    </div>
+    <div class="meters">
+      <div class="meter"><b id="mDepth">0</b><span>目前疊了幾個 fib 盒子</span></div>
+      <div class="meter"><b id="mMax">0</b><span>最高疊到幾個</span></div>
+      <div class="meter"><b id="mCalls">0</b><span>fib 被呼叫幾次</span></div>
+    </div>
+  </section>
+
+  <section class="panel tree-panel">
+    <h2>③ 呼叫樹 <span class="tag">誰呼叫了誰</span></h2>
+    <div class="tree-box"><svg id="tree"></svg></div>
+    <div class="tree-note">彩色框 = 還在堆疊裡（顏色和左邊盒子一樣）；綠色 = 已算完，下方是回傳值；<span class="dup"></span> 紅虛線 = 之前算過、又被<b>重算</b>一次。</div>
+  </section>
+
+  <section class="bar">
+    <div class="narr"><span class="stepno" id="stepno">0 / 0</span><span class="txt" id="narr"></span></div>
+    <div class="controls">
+      <button id="bReset" title="重來">⏮ 重來</button>
+      <button id="bPrev" title="上一步">◀ 上一步</button>
+      <button id="bPlay" class="primary">▶ 播放</button>
+      <button id="bNext" title="下一步">下一步 ▶</button>
+      <div class="progress" id="prog"><div></div></div>
+      <label>n =
+        <input type="number" id="inN" min="0" max="10" value="4">
+        <button id="bSetN">設定</button>
+      </label>
+      <label>速度 <input type="range" id="speed" min="1" max="7" value="2"></label>
+      <span id="nMsg" class="nmsg"></span>
+    </div>
+    <div class="keys">在 n 欄位輸入 0～10 後按 Enter 或「設定」。鍵盤：← → 上一步／下一步，空白鍵 播放／暫停</div>
+  </section>
+
+  <div class="takeaways">
+    <div class="tk"><h3>🔑 每個盒子都有自己的 n</h3>fib(4) 裡的 n 是 4，fib(3) 裡的 n 是 3。它們是<b>不同的變數</b>，放在不同的盒子裡，互不干擾。這就是「區域變數」。</div>
+    <div class="tk"><h3>⏸ 呼叫 = 暫停並等待</h3>fib(4) 執行到 <code>a = fib(3)</code> 時會停在那一行，直到 fib(3) 的盒子做完、被拿走，才帶著答案繼續往下。</div>
+    <div class="tk"><h3>🛑 一定要有終止條件</h3><code>if (n &lt;= 1) return n;</code> 讓盒子不再往上疊。沒有它，盒子會一直疊到記憶體爆掉（Stack Overflow）。</div>
+    <div class="tk"><h3>🐢 遞迴會重複計算</h3>看看呼叫樹裡的紅虛線：fib(2)、fib(1) 被算了好幾次。n 越大，重複越嚴重，這也是之後要學「用陣列記住答案」的原因。</div>
+  </div>
+</main>
+
+<script>
+const CODE = [
+  ['<span class="ty">int</span> <span class="fn">fib</span>(<span class="ty">int</span> n) {'],
+  ['    <span class="kw">if</span> (n &lt;= <span class="nu">1</span>)'],
+  ['        <span class="kw">return</span> n;'],
+  ['    <span class="ty">int</span> a = <span class="fn">fib</span>(n - <span class="nu">1</span>);'],
+  ['    <span class="ty">int</span> b = <span class="fn">fib</span>(n - <span class="nu">2</span>);'],
+  ['    <span class="kw">return</span> a + b;'],
+  ['}'],
+  [''],
+  ['<span class="ty">int</span> <span class="fn">main</span>() {'],
+  ['    <span class="ty">int</span> ans = <span class="fn">fib</span>(<span class="nu" id="codeN">4</span>);'],
+  ['    cout &lt;&lt; ans &lt;&lt; endl;'],
+  ['}'],
+];
+const COLORS = ['#e7e2d6','#ffd6a5','#fdffb6','#caffbf','#9bf6ff','#bdb2ff','#ffc6ff','#ffadad'];
+const STROKES= ['#a59f90','#e39b4b','#c9c84a','#6cbf5c','#3fb6c4','#7d6be0','#d07bd0','#e06666'];
+const colorFor = d => COLORS[d % COLORS.length];
+const strokeFor = d => STROKES[d % STROKES.length];
+
+/* ---------- build tree layout ---------- */
+function buildTree(N){
+  const nodes=[]; let id=0, leaf=0;
+  function rec(n, parent, depth){
+    const me={id:++id, n, parent, depth, kids:[]}; nodes.push(me);
+    if(n>1){ me.kids.push(rec(n-1, me.id, depth+1)); me.kids.push(rec(n-2, me.id, depth+1)); me.x=(me.kids[0].x+me.kids[1].x)/2; }
+    else me.x=leaf++;
+    return me;
+  }
+  rec(N,0,0);
+  return {nodes, leaves:leaf};
+}
+
+/* ---------- build step-by-step trace ---------- */
+function buildTrace(N){
+  const steps=[]; const stack=[]; const nodeState={}; let idc=0, calls=0, maxDepth=0; let out='';
+  const seen=new Set();
+  const main={id:0, name:'main', depth:0, vars:{ans:'?'}, line:10};
+  stack.push(main);
+  function snap(text, extra={}){
+    steps.push({text, line: stack.length? stack[stack.length-1].line : 12,
+      stack: stack.map(f=>({...f, vars:{...f.vars}})),
+      nodes: JSON.parse(JSON.stringify(nodeState)),
+      calls, depth: stack.length-1, maxDepth, out, ...extra});
+  }
+  snap(`程式從 <b>main</b> 開始。記憶體的堆疊上先放了一個 <b>main 的盒子</b>，裡面有變數 ans（還不知道是多少）。`);
+  snap(`main 要算 ans，所以呼叫 <b>fib(${N})</b>。main 在第 10 行<b>暫停</b>，等 fib(${N}) 把答案傳回來。`);
+  function fib(n, callerName){
+    const id=++idc; calls++;
+    const dup = seen.has(n); seen.add(n);
+    nodeState[id]={s:'active', dup};
+    const f={id, name:'fib', depth:stack.length, vars:{n, a:'?', b:'?'}, line:1};
+    stack.push(f); maxDepth=Math.max(maxDepth, stack.length-1);
+    snap(`呼叫 <b>fib(${n})</b>：電腦在堆疊最上面<b>疊一個新盒子</b>，盒子裡有它自己的 <b>n = ${n}</b>。` +
+      (dup? ` <span class="warn">注意：fib(${n}) 之前已經算過了，但電腦不記得，只好再算一次！</span>`:''), {newVar:{id,k:'n'}});
+    f.line=2;
+    if(n<=1){
+      snap(`檢查 n &lt;= 1：n 是 ${n}，<b>成立 ✔</b>。這是「終止條件」，不用再呼叫別人了。`);
+      f.line=3; f.ret=n;
+      snap(`第 3 行：直接 <b>return ${n}</b>。`);
+    } else {
+      snap(`檢查 n &lt;= 1：n 是 ${n}，<b>不成立 ✘</b>，要把問題拆小。`);
+      f.line=4;
+      snap(`第 4 行：要算 a，得先知道 <b>fib(${n-1})</b>。fib(${n}) 的盒子停在第 4 行<b>暫停等待</b>…`);
+      const a=fib(n-1, `fib(${n})`);
+      f.vars.a=a;
+      snap(`fib(${n-1}) 的答案回來了！<b>a = ${a}</b>，記在 fib(${n}) <b>自己的盒子</b>裡。`, {newVar:{id,k:'a'}});
+      f.line=5;
+      snap(`第 5 行：接著算 b，呼叫 <b>fib(${n-2})</b>。fib(${n}) 又停在第 5 行等待…`);
+      const b=fib(n-2, `fib(${n})`);
+      f.vars.b=b;
+      snap(`fib(${n-2}) 的答案回來了！<b>b = ${b}</b>。現在 a 和 b 都知道了。`, {newVar:{id,k:'b'}});
+      f.line=6; f.ret=a+b;
+      snap(`第 6 行：<b>return a + b</b> = ${a} + ${b} = <b>${a+b}</b>。`);
+    }
+    const r=f.ret;
+    nodeState[id]={s:'done', v:r, dup};
+    stack.pop();
+    snap(`fib(${n}) 做完了！它的盒子被<b>拿走</b>（這塊記憶體被釋放），答案 <b>${r}</b> 交給下面的 <b>${callerName}</b>。`);
+    return r;
+  }
+  const ans=fib(N, 'main');
+  main.vars.ans=ans;
+  snap(`回到 main：<b>ans = ${ans}</b>。整個過程中 fib 一共被呼叫了 <b>${calls}</b> 次，堆疊最高疊了 <b>${maxDepth}</b> 個 fib 盒子。`, {newVar:{id:0,k:'ans'}});
+  main.line=11; out=String(ans);
+  snap(`第 11 行：把 ans 印到螢幕上 → <b>${ans}</b>。`);
+  stack.pop();
+  snap(`main 結束，最後一個盒子也拿走了，堆疊清空 🎉　試試把 n 改大，看看呼叫次數長得多快！`);
+  return steps;
+}
+
+/* ---------- rendering ---------- */
+const $ = id => document.getElementById(id);
+let N=4, steps=[], tree=null, cur=0, timer=null;
+
+function renderCode(){
+  $('code').innerHTML = CODE.map((l,i)=>`<div class="ln" data-l="${i+1}"><span class="no">${i+1}</span><span>${l[0]||' '}</span><span class="pin"></span></div>`).join('');
+}
+
+function drawTree(){
+  const svg=$('tree'); const {nodes, leaves}=tree;
+  const maxD=Math.max(...nodes.map(n=>n.depth));
+  const W=Math.max(360, leaves*70), H=(maxD+1)*80+20;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const wide = leaves>9;
+  svg.parentElement.classList.toggle('wide', wide);
+  if(wide){ svg.style.width=(leaves*56)+'px'; svg.style.height=(H*0.8)+'px'; svg.style.flex='none'; svg.style.maxHeight='none'; }
+  else { svg.style.flex=''; svg.style.width=''; svg.style.height=''; svg.style.maxHeight=''; }
+  const px=x=> leaves<=1? W/2 : 40 + x*(W-80)/(leaves-1);
+  const py=d=> 34 + d*80;
+  let html='';
+  const byId={}; nodes.forEach(n=>byId[n.id]=n);
+  nodes.forEach(n=>{ if(n.parent){ const p=byId[n.parent];
+    html+=`<line class="edge hidden" id="e${n.id}" x1="${px(p.x)}" y1="${py(p.depth)+16}" x2="${px(n.x)}" y2="${py(n.depth)-16}"/>`; }});
+  nodes.forEach(n=>{
+    html+=`<g class="node hidden" id="n${n.id}" transform="translate(${px(n.x)},${py(n.depth)})">
+      <rect x="-30" y="-16" width="60" height="32" rx="9" fill="#fff" stroke="#ccc"/>
+      <text y="0">fib(${n.n})</text>
+      <text class="val" y="30" fill="#2f9e6e"></text></g>`;
+  });
+  svg.innerHTML=html;
+}
+
+let prevFrameIds=new Set();
+function render(){
+  const s=steps[cur];
+  $('stepno').textContent=`${cur+1} / ${steps.length}`;
+  $('narr').innerHTML=s.text;
+  $('prog').firstElementChild.style.width=((cur)/(steps.length-1)*100)+'%';
+  $('mDepth').textContent=s.depth<0?0:s.depth; $('mMax').textContent=s.maxDepth; $('mCalls').textContent=s.calls;
+  $('output').innerHTML = s.out ? s.out : '<small>螢幕輸出會出現在這裡</small>';
+
+  // code highlight + pins
+  document.querySelectorAll('.ln').forEach(el=>{ el.classList.remove('cur'); const p=el.querySelector('.pin'); p.innerHTML=''; p.style.background='transparent'; });
+  if(s.stack.length){
+    const top=s.stack[s.stack.length-1];
+    document.querySelector(`.ln[data-l="${top.line}"]`)?.classList.add('cur');
+    const pins={};
+    s.stack.slice(0,-1).forEach(f=>{ (pins[f.line] ||= []).push(f); });
+    Object.entries(pins).forEach(([l,fs])=>{
+      const p=document.querySelector(`.ln[data-l="${l}"] .pin`);
+      p.innerHTML=fs.map(f=>`<span title="停在這行等待" style="background:${colorFor(f.depth)};border-radius:99px;padding:0 6px;white-space:nowrap">⏸ ${f.name==='main'?'main':'fib('+f.vars.n+')'}</span>`).join('');
+    });
+  }
+
+  // stack (keyed)
+  const st=$('stack'); const ids=new Set(s.stack.map(f=>String(f.id)));
+  [...st.children].forEach(el=>{ if(!ids.has(el.dataset.id) && !el.classList.contains('leave')){ el.classList.add('leave'); setTimeout(()=>el.remove(),450);} });
+  s.stack.forEach((f,i)=>{
+    let el=st.querySelector(`.frame[data-id="${f.id}"]:not(.leave)`);
+    const isNew=!el;
+    if(isNew){ el=document.createElement('div'); el.className='frame enter'; el.dataset.id=f.id;
+      // insert in order: column-reverse so append = top
+      const leaving=[...st.querySelectorAll('.frame.leave')];
+      st.appendChild(el); leaving.forEach(l=>st.appendChild(l)); setTimeout(()=>el.classList.remove('enter'),500);}
+    el.style.background=colorFor(f.depth); el.style.borderColor=strokeFor(f.depth);
+    const isTop=i===s.stack.length-1;
+    el.classList.toggle('top',isTop); el.classList.toggle('paused',!isTop);
+    const title = f.name==='main' ? 'main()' : `fib(${f.vars.n})`;
+    const vars = Object.entries(f.vars).map(([k,v])=>{
+      const fl = s.newVar && s.newVar.id===f.id && s.newVar.k===k ? ' flash':'';
+      return `<span class="var${v==='?'?' q':''}${fl}">${k} = ${v}</span>`;}).join('');
+    el.innerHTML=`<div class="ttl">${title}<span class="st">${isTop?'▶ 執行中・第 '+f.line+' 行':'⏸ 停在第 '+f.line+' 行'}</span></div>
+      <div class="vars">${vars}</div>${f.ret!==undefined?`<span class="ret">回傳 ${f.ret}</span>`:''}`;
+  });
+  // ensure DOM order matches stack order (for backward steps)
+  s.stack.forEach(f=>{ const el=st.querySelector(`.frame[data-id="${f.id}"]:not(.leave)`); if(el) st.appendChild(el); });
+
+  // tree
+  const onStack=new Set(s.stack.filter(f=>f.name==='fib').map(f=>f.id));
+  const depthOf={}; s.stack.forEach(f=>depthOf[f.id]=f.depth);
+  tree.nodes.forEach(n=>{
+    const g=$('n'+n.id), e=$('e'+n.id), ns=s.nodes[n.id];
+    const rect=g.querySelector('rect'), val=g.querySelector('.val');
+    if(!ns){ g.classList.add('hidden'); rect.setAttribute('fill','#fff'); rect.setAttribute('stroke','#ccc'); rect.removeAttribute('stroke-dasharray'); val.textContent=''; e&&e.classList.add('hidden'); return; }
+    g.classList.remove('hidden'); e&&e.classList.remove('hidden');
+    if(ns.s==='active'){ rect.setAttribute('fill',colorFor(depthOf[n.id]??1)); rect.setAttribute('stroke',strokeFor(depthOf[n.id]??1)); val.textContent=''; }
+    else { rect.setAttribute('fill','#dff5ea'); rect.setAttribute('stroke','#2f9e6e'); val.textContent='= '+ns.v; }
+    if(ns.dup){ rect.setAttribute('stroke','#d64545'); rect.setAttribute('stroke-dasharray','5 4'); } else rect.removeAttribute('stroke-dasharray');
+    e && e.classList.toggle('on', onStack.has(n.id));
+  });
+  // keep the running node in view when the tree is wide
+  const box=$('tree').parentElement;
+  const topF=s.stack[s.stack.length-1];
+  if(box.classList.contains('wide') && topF && topF.name==='fib'){
+    const g=$('n'+topF.id).getBoundingClientRect(), bb=box.getBoundingClientRect();
+    box.scrollTo({left: box.scrollLeft + (g.left+g.width/2) - (bb.left+bb.width/2),
+                  top: box.scrollTop + (g.top+g.height/2) - (bb.top+bb.height/2), behavior:'smooth'});
+  }
+}
+
+function setN(n){
+  stop(); N=n; $('codeN').textContent=n; $('inN').value=n;
+  steps=buildTrace(n); tree=buildTree(n); drawTree(); cur=0; $('stack').innerHTML=''; render();
+}
+function go(i){ cur=Math.max(0,Math.min(steps.length-1,i)); render(); if(cur===steps.length-1) stop(); }
+const delay=()=>[0,1800,1200,800,500,280,120,40][+$('speed').value];
+function play(){ if(cur>=steps.length-1) go(0); $('bPlay').textContent='⏸ 暫停'; tick(); }
+function tick(){ timer=setTimeout(()=>{ go(cur+1); if(timer && cur<steps.length-1) tick(); }, delay()); }
+function stop(){ clearTimeout(timer); timer=null; $('bPlay').textContent='▶ 播放'; }
+
+$('bPlay').onclick=()=> timer? stop(): play();
+$('bNext').onclick=()=>{stop();go(cur+1)};
+$('bPrev').onclick=()=>{stop();go(cur-1)};
+$('bReset').onclick=()=>{stop();$('stack').innerHTML='';go(0)};
+function applyN(){
+  const raw=$('inN').value.trim(), v=Number(raw);
+  if(raw===''||!Number.isInteger(v)||v<0){ $('nMsg').textContent='請輸入 0 以上的整數'; return; }
+  if(v>10){ let f0=0,f1=1; for(let i=0;i<v+1;i++){[f0,f1]=[f1,f0+f1];} $('nMsg').textContent=`n = ${v} 要呼叫 fib ${(2*f0-1).toLocaleString()} 次，動畫會太長，請輸入 0～10`; return; }
+  $('nMsg').textContent = v>=8 ? '步驟很多，可以把速度調快，或點進度條跳著看' : '';
+  setN(v); $('inN').blur();
+}
+$('bSetN').onclick=applyN;
+$('inN').addEventListener('keydown',e=>{ if(e.key==='Enter') applyN(); });
+$('inN').addEventListener('change',applyN);
+$('prog').onclick=e=>{const r=e.currentTarget.getBoundingClientRect(); stop(); go(Math.round((e.clientX-r.left)/r.width*(steps.length-1)));};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return;
+  if(e.key==='ArrowRight'){stop();go(cur+1)} else if(e.key==='ArrowLeft'){stop();go(cur-1)}
+  else if(e.key===' '){e.preventDefault(); timer?stop():play();}
+});
+
+renderCode(); setN(4);
+</script>
+</body>
+</html>
